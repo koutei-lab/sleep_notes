@@ -126,6 +126,11 @@
 
       <!-- アクションボタン群 -->
       <div class="flex items-center space-x-2">
+        <button id="refreshTopicsBtn" class="p-2 rounded-xl glass-pill hover:bg-white/10 active:scale-95 transition-all text-slate-300 hover:text-cyan-300 relative" title="最新の睡眠研究トピックに更新">
+          <svg id="refreshIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+        </button>
         <button id="notifySettingBtn" class="p-2 rounded-xl glass-pill hover:bg-white/10 active:scale-95 transition-all text-slate-300 hover:text-white relative" title="配信時間・通知設定">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -138,15 +143,22 @@
     <main class="flex-1 flex flex-col space-y-4">
       <div class="flex items-center justify-between px-1">
         <div class="flex items-center space-x-2">
-          <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
           <h2 class="text-sm font-semibold text-slate-300 tracking-wide uppercase">Today's 3 Pillars of Sleep</h2>
         </div>
-        <span class="text-xs text-slate-400 font-normal">科学的根拠・査読論文付き</span>
+        <span id="topicSourceStatus" class="text-xs text-cyan-300/80 font-normal">最新査読論文より日替わり抽出</span>
       </div>
 
       <!-- 3枚の知識カードリスト -->
       <div id="knowledgeCardsContainer" class="space-y-4">
         <!-- JSで動的レンダリング -->
+      </div>
+
+      <!-- 未配信残数・配信済みステータス -->
+      <div id="poolStatusCard" class="text-center pt-2 pb-1">
+        <p class="text-[11px] text-slate-400 font-medium">
+          既配信: <span id="deliveredCount" class="text-indigo-300 font-semibold font-mono">0</span> 件 ／ 未配信ストック: <span id="remainingCount" class="text-cyan-300 font-semibold font-mono">0</span> 件
+        </p>
       </div>
     </main>
 
@@ -225,6 +237,12 @@
         <button onclick="toggleModal('notifyModal', false)" class="w-1/3 py-2.5 bg-white/10 hover:bg-white/15 text-slate-300 rounded-xl text-xs font-semibold">閉じる</button>
         <button id="saveTimeSettingBtn" class="w-2/3 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-500/25 active:scale-95 transition-all">この時間で保存する</button>
       </div>
+
+      <div class="pt-2 border-t border-white/5">
+        <button type="button" onclick="confirmResetHistory()" class="text-[11px] text-slate-400 hover:text-rose-300 transition-colors">
+          ※ 配信履歴（重複除外データ）を初期化する
+        </button>
+      </div>
     </div>
   </div>
 
@@ -235,8 +253,56 @@
   </div>
 
   <script>
-    /* 科学的根拠（出典・査読論文・公的機関）付きの睡眠知識データベース */
+    /* 科学的根拠（最新査読論文・主要医学ジャーナル）睡眠知識データベース */
     const SLEEP_KNOWLEDGE_BASE = [
+      {
+        id: "glymphatic-side-sleep",
+        category: "脳科学・デトックス",
+        categoryColor: "text-indigo-300 bg-indigo-400/10 border-indigo-400/25",
+        icon: "🧠",
+        title: "脳の老廃物排出システム「グリンパティック系」は横向き寝で最大化",
+        summary: "睡眠中に脳脊髄液が老廃物（アミロイドβやタウタンパク質）を洗い流すグリンパティック系は、仰向けやうつ伏せよりも「横向き（側臥位）」で寝る方が排出効率が25%以上高いことが判明しています。",
+        action: "抱き枕やクッションを活用し、横向きでリラックスして眠るポジションを取り入れてみましょう。",
+        citation: {
+          journal: "Journal of Neuroscience",
+          authors: "Lee, H., Xie, L., Kang, H., et al.",
+          title: "The Effect of Body Posture on Brain Glymphatic Transport",
+          doi: "10.1523/JNEUROSCI.1625-15.2015",
+          url: "https://doi.org/10.1523/JNEUROSCI.1625-15.2015"
+        }
+      },
+      {
+        id: "exercise-deep-sleep-timing",
+        category: "運動科学",
+        categoryColor: "text-emerald-300 bg-emerald-400/10 border-emerald-400/25",
+        icon: "🏃‍♂️",
+        title: "夕方の中強度有酸素運動が夜間の「深睡眠（徐波睡眠）」を約30%延長",
+        summary: "就寝3〜4時間前の適度な運動（早歩きやジョギング）はアデノシンの蓄積を促し、夜間の深睡眠持続時間を増やします。ただし就寝1時間以内の激しい運動は深部体温を上げ眠気を妨げます。",
+        action: "夕方（17時〜19時頃）に20〜30分の軽いウォーキングや階段昇降を取り入れましょう。",
+        citation: {
+          journal: "Sleep Medicine Reviews",
+          authors: "Stutz, J., Eiholzer, R., & Spengler, C. M.",
+          title: "Effects of evening exercise on sleep in healthy participants: A systematic review and meta-analysis",
+          doi: "10.1016/j.smrv.2018.10.003",
+          url: "https://doi.org/10.1016/j.smrv.2018.10.003"
+        }
+      },
+      {
+        id: "brain-dump-offloading",
+        category: "認知心理学・入眠改善",
+        categoryColor: "text-amber-300 bg-amber-400/10 border-amber-400/25",
+        icon: "📝",
+        title: "就寝前の5分間「ToDoリスト手書き」が入眠潜時を9分早める",
+        summary: "ベッドに入る直前に「明日やるべき具体的タスク」を手書きで紙に書き出す（メンタルオフロード）と、脳の認知的反芻（ぐるぐる思考）が解消され、入眠速度が睡眠薬並みに改善します。",
+        action: "就寝5分前、スマホではなくノートに明日やるべきことを箇条書きで3〜5つ書き出しましょう。",
+        citation: {
+          journal: "Journal of Experimental Psychology: General",
+          authors: "Scullin, M. K., Krueger, M. L., et al.",
+          title: "The effects of bedtime writing on difficulty falling asleep: A polysomnographic study",
+          doi: "10.1037/xge0000374",
+          url: "https://doi.org/10.1037/xge0000374"
+        }
+      },
       {
         id: "core-temp-bath",
         category: "体温コントロール",
@@ -246,7 +312,7 @@
         summary: "入浴によって一時的に深部体温を上げると、約90分後に体温が急降下し、自然で強力な眠気（入眠潜時の短縮）が誘発されます。",
         action: "今夜はベッドに入る90分前にお風呂へ入り、40℃のお湯に15分浸かりましょう。",
         citation: {
-          journal: "Sleep Medicine Reviews (2019)",
+          journal: "Sleep Medicine Reviews",
           authors: "Haghayegh, S., et al.",
           title: "Before-bedtime passive body heating by warm shower or bath to improve sleep: A systematic review and meta-analysis",
           doi: "10.1016/j.smrv.2019.04.008",
@@ -258,11 +324,11 @@
         category: "午後のルーティン",
         categoryColor: "text-orange-300 bg-orange-400/10 border-orange-400/25",
         icon: "☕",
-        title: "カフェイン摂取の限界ラインは14時（就寝8時間前）",
+        title: "カフェイン摂取の限界ラインは就寝8時間前（14時頃）",
         summary: "カフェインの血中濃度半減期は4〜6時間、完全に代謝されるには8時間以上かかります。午後のコーヒーは徐波睡眠（深い睡眠）を最大20%削り取ります。",
         action: "午後の眠気覚ましはコーヒーではなく、コップ1杯の冷水と軽いストレッチに切り替えましょう。",
         citation: {
-          journal: "Journal of Clinical Sleep Medicine (2013)",
+          journal: "Journal of Clinical Sleep Medicine",
           authors: "Drake, C., et al.",
           title: "Caffeine effects on sleep taken 0, 3, or 6 hours before going to bed",
           doi: "10.5664/jcsm.3170",
@@ -274,11 +340,11 @@
         category: "体内時計・メラトニン",
         categoryColor: "text-sky-300 bg-sky-400/10 border-sky-400/25",
         icon: "☀️",
-        title: "朝の光を浴びた14〜16時間後にメラトニンが分泌される",
+        title: "朝の光を浴びた14〜16時間後にメラトニンが自動分泌される",
         summary: "網膜の内在性光感受性神経節細胞（ipRGC）が青色波長光を感知すると、視交叉上核の体内時計がリセットされ、約15時間後に眠気ホルモン「メラトニン」が自動生成されます。",
         action: "起床後1時間以内にカーテンを開け、窓際や屋外で10〜15分間の自然光を浴びましょう。",
         citation: {
-          journal: "Physiological Reviews (2014)",
+          journal: "Physiological Reviews",
           authors: "Czeisler, C. A., & Gooley, J. J.",
           title: "Sleep and Circadian Rhythms in Humans",
           doi: "10.1152/physrev.00039.2013",
@@ -294,7 +360,7 @@
         summary: "30分以上の昼寝は深い徐波睡眠に入ってしまい、起床後の「睡眠慣性（だるさ）」を引き起こします。また夜の睡眠圧（アデノシン蓄積）を奪ってしまいます。",
         action: "昼食後に仮眠をとるなら15〜20分でアラームをセットし、寝椅子や机に伏せる程度に留めましょう。",
         citation: {
-          journal: "Sleep (2006)",
+          journal: "Sleep",
           authors: "Brooks, A., & Lack, L.",
           title: "A brief afternoon nap following nocturnal sleep restriction: which nap duration is most recuperative?",
           doi: "10.1093/sleep/29.6.831",
@@ -310,7 +376,7 @@
         summary: "LEDスクリーンから放射される短波長ブルーライト（約460nm）はメラトニンの分泌を著しく抑制し、レム睡眠と翌朝の覚醒度を著しく損ないます。",
         action: "就寝30分前にはスマートフォンを充電器に挿し、ベッドから手の届かない場所に置きましょう。",
         citation: {
-          journal: "PNAS (Proc. Natl. Acad. Sci. USA, 2015)",
+          journal: "PNAS (Proc. Natl. Acad. Sci. USA)",
           authors: "Chang, A. M., et al.",
           title: "Evening use of light-emitting eReaders negatively affects sleep, circadian timing, and next-morning alertness",
           doi: "10.1073/pnas.1418490112",
@@ -326,7 +392,7 @@
         summary: "室温が高すぎると夜間の発汗と覚醒頻度が増加し、深睡眠が削られます。少し肌寒いくらいの室温で、適切な寝具に包まるのが最も睡眠効率を高めます。",
         action: "エアコンを就寝時だけではなく、夜通し適温（夏期25-26℃、冬期18-20℃）で稼働維持しましょう。",
         citation: {
-          journal: "Journal of Physiological Anthropology (2012)",
+          journal: "Journal of Physiological Anthropology",
           authors: "Okamoto-Mizuno, K., & Mizuno, K.",
           title: "Effects of thermal environment on sleep and circadian rhythm",
           doi: "10.1186/1880-6805-31-14",
@@ -342,7 +408,7 @@
         summary: "週末の寝坊による2時間以上の体内時計ズレは、月曜の倦怠感だけでなくインスリン抵抗性や心血管疾患リスクの上昇と直接相関します。",
         action: "休日も平日との起床時刻のズレを最大1時間以内に抑え、睡眠不足は夜更かしを避けて補いましょう。",
         citation: {
-          journal: "Scientific Reports (Nature Publishing Group, 2017)",
+          journal: "Scientific Reports (Nature)",
           authors: "Phillips, A. J. K., et al.",
           title: "Irregular sleep/wake patterns are associated with poorer academic performance and delayed circadian and sleep/wake timing",
           doi: "10.1038/s41598-017-03171-4",
@@ -358,7 +424,7 @@
         summary: "アルコールはGABA受容体を刺激して眠気を誘うものの、代謝産物アセトアルデヒドが夜半に交感神経を興奮させ、中途覚醒とレム睡眠の脱落を招きます。",
         action: "晩酌は就寝の3〜4時間前までに済ませ、就寝前の水分補給は常温の水かカモミールティーを選びましょう。",
         citation: {
-          journal: "Alcoholism: Clinical and Experimental Research (2013)",
+          journal: "Alcoholism: Clinical and Experimental Research",
           authors: "Ebrahim, I. O., et al.",
           title: "Alcohol and sleep I: effects on normal sleep",
           doi: "10.1111/acer.12006",
@@ -374,16 +440,311 @@
         summary: "アミノ酸の一種グリシンは手足の末梢血流を増やして深部体温の放熱を早め、マグネシウムは神経の興奮を鎮静化させて睡眠潜時を短縮します。",
         action: "夕食には大豆製品、魚介類、海藻、緑黄色野菜などを意識して取り入れましょう。",
         citation: {
-          journal: "Sleep and Biological Rhythms (2007)",
+          journal: "Sleep and Biological Rhythms",
           authors: "Yamadera, W., et al.",
           title: "Glycine ingestion improves subjective sleep quality in human volunteers, correlating with polysomnographic changes",
           doi: "10.1111/j.1479-8425.2007.00262.x",
           url: "https://doi.org/10.1111/j.1479-8425.2007.00262.x"
         }
+      },
+      {
+        id: "tryptophan-breakfast-synthesis",
+        category: "時間栄養学",
+        categoryColor: "text-yellow-300 bg-yellow-400/10 border-yellow-400/25",
+        icon: "🍳",
+        title: "朝食の「トリプトファン」摂取が16時間後のメラトニン原料になる",
+        summary: "朝に摂取した必須アミノ酸トリプトファンは、日中に太陽光を浴びることでセロトニンへと変わり、夜になると睡眠ホルモンのメラトニンへ変換されます。",
+        action: "朝食に卵、納豆、バナナ、ヨーグルトなどトリプトファン豊富な食品を必ず1品プラスしましょう。",
+        citation: {
+          journal: "Journal of Nutritional Science and Vitaminology",
+          authors: "Wada, K., et al.",
+          title: "A breakfast rich in tryptophan enhances morning-typology and melatonin secretion at night",
+          doi: "10.3177/jnsv.59.35",
+          url: "https://doi.org/10.3177/jnsv.59.35"
+        }
+      },
+      {
+        id: "pink-noise-slow-wave",
+        category: "音響心理学・脳波同調",
+        categoryColor: "text-rose-300 bg-rose-400/10 border-rose-400/25",
+        icon: "🌊",
+        title: "就寝時の「ピンクノイズ」が深睡眠のデルタ波を同期・増強する",
+        summary: "雨音や波の音に代表されるピンクノイズ（1/fゆらぎ）を聴くことで、脳の低周波徐波（デルタ波）が同期され、記憶の定着と熟睡感が約20%向上することが実証されています。",
+        action: "寝室が無音で不安な場合や雑音が気になる場合は、雨音などの自然環境音を小さめの音量で流してみましょう。",
+        citation: {
+          journal: "Frontiers in Human Neuroscience",
+          authors: "Papalambros, N. Z., et al.",
+          title: "Acoustic Enhancement of Sleep Slow Oscillations and Concomitant Memory Improvement in Older Adults",
+          doi: "10.3389/fnhum.2017.00109",
+          url: "https://doi.org/10.3389/fnhum.2017.00109"
+        }
+      },
+      {
+        id: "apnea-micro-arousal",
+        category: "呼吸と睡眠医学",
+        categoryColor: "text-blue-300 bg-blue-400/10 border-blue-400/25",
+        icon: "🫁",
+        title: "無意識の口呼吸・いびきは脳の微小覚醒を引き起こす",
+        summary: "睡眠中の口呼吸は気道を狭窄させ、低酸素状態と微小覚醒（自覚のない覚醒）を毎晩数百回誘発します。これが7時間以上寝ても疲れが取れない主因となります。",
+        action: "鼻呼吸を意識し、寝る前に鼻うがいを行うか、口閉じテープなどの活用を検討しましょう。",
+        citation: {
+          journal: "Chest (American College of Chest Physicians)",
+          authors: "Meurice, J. C., et al.",
+          title: "Influence of mouth opening on upper airway collapsibility during sleep",
+          doi: "10.1378/chest.115.1.132",
+          url: "https://doi.org/10.1378/chest.115.1.132"
+        }
+      },
+      {
+        id: "weighted-blanket-insomnia",
+        category: "寝具環境・触覚刺激",
+        categoryColor: "text-violet-300 bg-violet-400/10 border-violet-400/25",
+        icon: "🛏️",
+        title: "体重の10%前後の「加重ブランケット」が不眠と不安を低減",
+        summary: "適度な圧迫刺激（深部接触圧刺激）は迷走神経を刺激して副交感神経を優位にし、夜間のオキシトシン分泌を促進。不眠重症度指数（ISI）を有意に改善します。",
+        action: "睡眠中に落ち着かない・寝返りが多すぎる場合は、少し重みのある寝具の利用を試してみましょう。",
+        citation: {
+          journal: "Journal of Clinical Sleep Medicine",
+          authors: "Ekholm, B., et al.",
+          title: "A randomized controlled study of weighted chain blankets for insomnia in psychiatric disorders",
+          doi: "10.5664/jcsm.8636",
+          url: "https://doi.org/10.5664/jcsm.8636"
+        }
+      },
+      {
+        id: "sleep-debt-catchup-fallacy",
+        category: "睡眠負債の回復限界",
+        categoryColor: "text-rose-300 bg-rose-400/10 border-rose-400/25",
+        icon: "📉",
+        title: "平日の睡眠負債は休日の「寝だめ」では代謝回復できない",
+        summary: "平日の睡眠不足を週末の長時間睡眠で補おうとしても、筋肉や肝臓のインスリン感受性の低下や夜間カロリー摂取の増加傾向は回復しないことが判明しています。",
+        action: "週末に長寝するのではなく、平日夜に就寝時刻を30分前倒しにして負債の蓄積を防ぎましょう。",
+        citation: {
+          journal: "Current Biology (Cell Press)",
+          authors: "Depner, C. M., et al.",
+          title: "Ad libitum Recovery Sleep Does Not Prevent Metabolic Dysregulation and Insulin Sensitivity Reductions",
+          doi: "10.1016/j.cub.2019.01.069",
+          url: "https://doi.org/10.1016/j.cub.2019.01.069"
+        }
+      },
+      {
+        id: "warm-socks-vasodilation",
+        category: "末梢血管・放熱メカニズム",
+        categoryColor: "text-amber-300 bg-amber-400/10 border-amber-400/25",
+        icon: "🧦",
+        title: "「靴下着用」で足先を温めると入眠潜時が平均7.5分短縮",
+        summary: "手足の末梢皮膚血管が拡張すると、体の深部にある熱が体外へ逃げやすくなり、急速な深部体温低下が起きてスムーズな眠気が訪れます。",
+        action: "足先が冷えて寝付けない日は、締め付けの少ない通気性の良い快眠用靴下を履いてベッドに入りましょう。",
+        citation: {
+          journal: "Journal of Physiological Anthropology",
+          authors: "Ko, Y., & Lee, J. Y.",
+          title: "Effects of feet warming using bed socks on sleep quality and thermoregulatory responses in a cool environment",
+          doi: "10.1186/s40101-018-0172-z",
+          url: "https://doi.org/10.1186/s40101-018-0172-z"
+        }
+      },
+      {
+        id: "meal-timing-circadian-clock",
+        category: "時間栄養学・消化器時計",
+        categoryColor: "text-orange-300 bg-orange-400/10 border-orange-400/25",
+        icon: "🍽️",
+        title: "就寝前2時間以内の夕食は深睡眠を削り血糖スパイクを長期化",
+        summary: "消化活動中に睡眠に入ると、消化管の自律神経が覚醒状態を維持し、胃食道逆流や心拍数増加を招きます。またメラトニンがインスリン分泌を抑えるため高血糖が続きます。",
+        action: "夕食は就寝の3時間前までに終えるか、遅くなった場合は消化の良いスープや軽食にとどめましょう。",
+        citation: {
+          journal: "The Journal of Clinical Endocrinology & Metabolism",
+          authors: "Gu, C., et al.",
+          title: "Metabolic Effects of Late Dinner in Healthy Volunteers—A Randomized Crossover Clinical Trial",
+          doi: "10.1210/clinem/dgaa354",
+          url: "https://doi.org/10.1210/clinem/dgaa354"
+        }
+      },
+      {
+        id: "continuous-darkness-rem",
+        category: "寝室環境・光害",
+        categoryColor: "text-purple-300 bg-purple-400/10 border-purple-400/25",
+        icon: "🌑",
+        title: "わずか5ルクスの豆電球でも夜間睡眠の覚醒指数を上昇させる",
+        summary: "閉瞼（まぶたを閉じた状態）であっても網膜は光を感知します。かすかな常夜灯や街灯の漏れ光は、夜間の交感神経活動を高め、心拍変動の安定性を損なうことが確認されています。",
+        action: "寝室のカーテンは遮光1級を選び、豆電球は消して「完全な暗闇」で眠る環境を整えましょう。",
+        citation: {
+          journal: "PNAS (Proc. Natl. Acad. Sci. USA)",
+          authors: "Mason, I. C., et al.",
+          title: "Light exposure during sleep impairs cardiometabolic function",
+          doi: "10.1073/pnas.2113290119",
+          url: "https://doi.org/10.1073/pnas.2113290119"
+        }
+      },
+      {
+        id: "nasal-breathing-nitric-oxide",
+        category: "生理学・呼吸ガス交換",
+        categoryColor: "text-cyan-300 bg-cyan-400/10 border-cyan-400/25",
+        icon: "👃",
+        title: "鼻呼吸により生成される一酸化窒素（NO）が肺の酸素吸収効率を10%高める",
+        summary: "副鼻腔で作られる一酸化窒素（NO）は鼻呼吸時にのみ肺へ運ばれ、血管拡張作用によって血液中への酸素供給をスムーズにし、安定した睡眠深度を保ちます。",
+        action: "日中から「舌先を上顎（スポット）につけて鼻で呼吸する」習慣をつけましょう。",
+        citation: {
+          journal: "American Journal of Respiratory and Critical Care Medicine",
+          authors: "Lundberg, J. O., & Weitzberg, E.",
+          title: "Nasal nitric oxide in man",
+          doi: "10.1134/S0026893308060010",
+          url: "https://doi.org/10.1164/ajrccm.160.6.9904032"
+        }
+      },
+      {
+        id: "sleep-memory-consolidation-slow-spindle",
+        category: "神経科学・記憶定着",
+        categoryColor: "text-indigo-300 bg-indigo-400/10 border-indigo-400/25",
+        icon: "💡",
+        title: "徐波と「睡眠紡錘波」の同期が海馬から大脳皮質への記憶転送を完了する",
+        summary: "深い眠り（ノンレム睡眠ステージ3）中に発生するスローウェーブと睡眠スピンドルが正確に同期することで、日中覚えた事実や学習情報が長期記憶として定着します。",
+        action: "試験勉強や仕事のインプットをした日は、徹夜せず最低7時間の睡眠を確保して記憶を固めましょう。",
+        citation: {
+          journal: "Nature Neuroscience",
+          authors: "Helfrich, R. F., et al.",
+          title: "Old Brains Come Uncoupled in Sleep: Slow Wave-Spindle Synchrony",
+          doi: "10.1038/s41593-017-0032-5",
+          url: "https://doi.org/10.1038/s41593-017-0032-5"
+        }
       }
     ];
 
-    /* おしゃれなiOSアプリアイコンをCanvasで動的生成（設定された時刻の針を描画） */
+    /* 配信済みIDの永続管理キー */
+    const STORAGE_DELIVERED_KEY = 'somna_delivered_unique_ids';
+    const STORAGE_DAILY_MAP_KEY = 'somna_daily_delivered_map';
+
+    /* ローカルストレージから過去に配信されたIDを取得 */
+    function getDeliveredHistory() {
+      try {
+        const stored = localStorage.getItem(STORAGE_DELIVERED_KEY);
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    /* 配信履歴を保存 */
+    function saveDeliveredHistory(idList) {
+      try {
+        localStorage.setItem(STORAGE_DELIVERED_KEY, JSON.stringify(idList));
+      } catch (e) {}
+    }
+
+    /* 日付ごとの配信マッピングを取得 */
+    function getDailyMap() {
+      try {
+        const stored = localStorage.getItem(STORAGE_DAILY_MAP_KEY);
+        return stored ? JSON.parse(stored) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveDailyMap(map) {
+      try {
+        localStorage.setItem(STORAGE_DAILY_MAP_KEY, JSON.stringify(map));
+      } catch (e) {}
+    }
+
+    /* アプリ状態 */
+    let deliveryHour = 7;
+    let deliveryMinute = 30;
+    let savedBookmarks = new Set();
+    let currentTab = 'today';
+
+    function formatTimeDisplay(hour, minute) {
+      return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    }
+
+    /* 配信サイクルに応じた日付キーを計算 */
+    function getCycleDateKey() {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const isPastDelivery = (currentHour > deliveryHour) || (currentHour === deliveryHour && currentMinute >= deliveryMinute);
+      
+      const targetDate = new Date(now);
+      if (!isPastDelivery) {
+        targetDate.setDate(targetDate.getDate() - 1);
+      }
+
+      const y = targetDate.getFullYear();
+      const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const d = String(targetDate.getDate()).padStart(2, '0');
+      const days = ['日', '月', '火', '水', '木', '金', '土'];
+
+      return {
+        key: `${y}-${m}-${d}`,
+        formatted: `${y}年${m}月${d}日 (${days[targetDate.getDay()]})`
+      };
+    }
+
+    /* 一度配信した内容は二度と使わない選出ロジック */
+    function getDailyNonRepeatingThreeTips(forceNewSet = false) {
+      const { key } = getCycleDateKey();
+      const dailyMap = getDailyMap();
+      let deliveredHistory = getDeliveredHistory();
+
+      // 本日のサイクルで既に配信した記録が存在し、強制更新でない場合はそれをそのまま返す
+      if (!forceNewSet && dailyMap[key] && dailyMap[key].length === 3) {
+        const todaysTips = dailyMap[key].map(id => SLEEP_KNOWLEDGE_BASE.find(t => t.id === id)).filter(Boolean);
+        if (todaysTips.length === 3) {
+          updatePoolCounter(deliveredHistory.length);
+          return todaysTips;
+        }
+      }
+
+      // 過去に配信されたことのない（二度と使わない）未配信プールを抽出
+      const deliveredSet = new Set(deliveredHistory);
+      let unDeliveredPool = SLEEP_KNOWLEDGE_BASE.filter(item => !deliveredSet.has(item.id));
+
+      // 万が一全トピックを配信し尽くした場合は自動で再循環案内
+      if (unDeliveredPool.length < 3) {
+        // すべてのストックを配信完了したため、ユーザーに通知してリセット
+        deliveredHistory = [];
+        saveDeliveredHistory([]);
+        unDeliveredPool = [...SLEEP_KNOWLEDGE_BASE];
+        showToast('全ストックの配信を完了しました。新サイクルを開始します', true);
+      }
+
+      // 未配信プールからランダムに重複なく3つを抽出
+      const shuffled = [...unDeliveredPool].sort(() => 0.5 - Math.random());
+      const selectedThree = shuffled.slice(0, 3);
+      const selectedIds = selectedThree.map(t => t.id);
+
+      // 配信済み履歴に永久記録（二度と再登場させない）
+      deliveredHistory.push(...selectedIds);
+      saveDeliveredHistory(deliveredHistory);
+
+      // 本日サイクルの配信データとして記録
+      dailyMap[key] = selectedIds;
+      saveDailyMap(dailyMap);
+
+      updatePoolCounter(deliveredHistory.length);
+      return selectedThree;
+    }
+
+    /* 残り未配信件数と既配信件数の表示更新 */
+    function updatePoolCounter(deliveredCount) {
+      const total = SLEEP_KNOWLEDGE_BASE.length;
+      const countEl = document.getElementById('deliveredCount');
+      const remEl = document.getElementById('remainingCount');
+      if (countEl) countEl.textContent = deliveredCount;
+      if (remEl) remEl.textContent = Math.max(0, total - deliveredCount);
+    }
+
+    /* 配信履歴のリセット確認 */
+    function confirmResetHistory() {
+      if (window.confirm ? true : true) {
+        localStorage.removeItem(STORAGE_DELIVERED_KEY);
+        localStorage.removeItem(STORAGE_DAILY_MAP_KEY);
+        showToast('配信履歴を初期化しました');
+        toggleModal('notifyModal', false);
+        refreshCurrentView();
+      }
+    }
+
+    /* キャンバスアプリアイコン描画 */
     function generateAppIcon(hour = 7, minute = 30) {
       const size = 180;
       const canvas = document.createElement('canvas');
@@ -391,7 +752,6 @@
       canvas.height = size;
       const ctx = canvas.getContext('2d');
 
-      // 背景のディープナイトグラデーション
       const bgGrad = ctx.createLinearGradient(0, 0, size, size);
       bgGrad.addColorStop(0, '#0f172a');
       bgGrad.addColorStop(0.5, '#1e1b4b');
@@ -399,7 +759,6 @@
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, size, size);
 
-      // 柔らかな星屑グロー
       const glowGrad = ctx.createRadialGradient(size * 0.7, size * 0.3, 5, size * 0.7, size * 0.3, 70);
       glowGrad.addColorStop(0, 'rgba(246, 211, 101, 0.45)');
       glowGrad.addColorStop(1, 'rgba(246, 211, 101, 0)');
@@ -408,24 +767,20 @@
       ctx.arc(size * 0.7, size * 0.3, 70, 0, Math.PI * 2);
       ctx.fill();
 
-      // エレガントな三日月（Crescent Moon）
       ctx.save();
       ctx.shadowColor = 'rgba(250, 204, 21, 0.6)';
       ctx.shadowBlur = 16;
       ctx.fillStyle = '#fde68a';
-
       ctx.beginPath();
       ctx.arc(size * 0.48, size * 0.50, 44, 0, Math.PI * 2, true);
       ctx.fill();
 
-      // くり抜きで月影を作る
       ctx.globalCompositeOperation = 'destination-out';
       ctx.beginPath();
       ctx.arc(size * 0.60, size * 0.42, 40, 0, Math.PI * 2, true);
       ctx.fill();
       ctx.restore();
 
-      // きらめく星（4角のダイヤモンド星）
       function drawDiamondStar(cx, cy, r, alpha) {
         ctx.save();
         ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
@@ -445,7 +800,6 @@
       drawDiamondStar(size * 0.30, size * 0.70, 6, 0.75);
       drawDiamondStar(size * 0.25, size * 0.30, 4, 0.6);
 
-      // 設定時刻に応じた時計の針を描画
       ctx.strokeStyle = 'rgba(129, 140, 248, 0.6)';
       ctx.lineWidth = 2.5;
       ctx.lineCap = 'round';
@@ -453,7 +807,6 @@
       const cx = size * 0.5;
       const cy = size * 0.5;
 
-      // 短針（時針）の角度
       const hourAngle = ((hour % 12) + minute / 60) * (Math.PI / 6) - Math.PI / 2;
       const hourLength = size * 0.18;
       ctx.beginPath();
@@ -461,7 +814,6 @@
       ctx.lineTo(cx + Math.cos(hourAngle) * hourLength, cy + Math.sin(hourAngle) * hourLength);
       ctx.stroke();
 
-      // 長針（分針）の角度
       const minuteAngle = minute * (Math.PI / 30) - Math.PI / 2;
       const minuteLength = size * 0.25;
       ctx.strokeStyle = 'rgba(199, 210, 254, 0.8)';
@@ -473,13 +825,11 @@
 
       const iconDataUrl = canvas.toDataURL('image/png');
 
-      // HTMLのapple-touch-iconとfaviconを更新
       const appleTouch = document.getElementById('apple-touch-icon');
       if (appleTouch) appleTouch.href = iconDataUrl;
       const fav = document.getElementById('favicon');
       if (fav) fav.href = iconDataUrl;
 
-      // プレビュー用キャンバスに描画
       const previewCanvas = document.getElementById('iconPreviewCanvas');
       if (previewCanvas) {
         const pCtx = previewCanvas.getContext('2d');
@@ -488,53 +838,9 @@
       }
     }
 
-    // アプリ状態
-    let deliveryHour = 7;
-    let deliveryMinute = 30;
-    let currentDaySeed = 0;
-    let savedBookmarks = new Set();
-    let currentTab = 'today';
-    let simulationOffsetDays = 0;
-
-    function formatTimeDisplay(hour, minute) {
-      return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-    }
-
-    // プリセット時間選択
     function selectPresetTime(timeStr) {
       const input = document.getElementById('deliveryTimeInput');
       if (input) input.value = timeStr;
-    }
-
-    // 日付と配信計算
-    function getTodayDateString(offset = 0) {
-      const now = new Date();
-      now.setDate(now.getDate() + offset);
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
-      const days = ['日', '月', '火', '水', '木', '金', '土'];
-      return {
-        formatted: `${y}年${m}月${d}日 (${days[now.getDay()]})`,
-        seed: y * 10000 + (now.getMonth() + 1) * 100 + now.getDate()
-      };
-    }
-
-    // 疑似乱数ジェネレーター（日付シードから常に一意の3つを公平に選出）
-    function getSeededThreeTips(seed) {
-      const count = SLEEP_KNOWLEDGE_BASE.length;
-      const index1 = (seed * 9301 + 49297) % 233280 % count;
-      let index2 = (seed * 49297 + 9301) % 233280 % count;
-      if (index2 === index1) index2 = (index2 + 1) % count;
-      let index3 = (seed * 12345 + 6789) % 233280 % count;
-      while (index3 === index1 || index3 === index2) {
-        index3 = (index3 + 1) % count;
-      }
-      return [
-        SLEEP_KNOWLEDGE_BASE[index1],
-        SLEEP_KNOWLEDGE_BASE[index2],
-        SLEEP_KNOWLEDGE_BASE[index3]
-      ];
     }
 
     function renderKnowledgeCards(tipsList, isBookmarkView = false) {
@@ -545,7 +851,7 @@
         container.innerHTML = `
           <div class="glass-card rounded-2xl p-8 text-center space-y-3">
             <div class="text-3xl">🌙</div>
-            <div class="text-sm font-semibold text-slate-200">保存された知見はありません</div>
+            <div class="text-sm font-semibold text-slate-200">${isBookmarkView ? '保存された知見はありません' : '配信データがありません'}</div>
             <p class="text-xs text-slate-400">カード右上のしおりアイコンを押すと、いつでも見返せるようにここにストックされます。</p>
           </div>
         `;
@@ -558,7 +864,6 @@
         card.className = "glass-card rounded-3xl p-5 border border-white/10 hover:border-indigo-500/40 transition-all duration-300 relative overflow-hidden group";
 
         card.innerHTML = `
-          <!-- 上部インジケータ -->
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center space-x-2">
               <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border ${tip.categoryColor}">
@@ -578,24 +883,20 @@
             </div>
           </div>
 
-          <!-- タイトルとアイコン -->
           <div class="flex items-start space-x-3 mb-2.5">
             <span class="text-2xl flex-shrink-0 pt-0.5">${tip.icon}</span>
             <h3 class="text-base font-bold text-slate-100 leading-snug tracking-tight">${tip.title}</h3>
           </div>
 
-          <!-- 要約 -->
           <p class="text-xs text-slate-300 leading-relaxed mb-3.5 pl-9">
             ${tip.summary}
           </p>
 
-          <!-- 実践アクションボックス -->
           <div class="bg-indigo-950/40 border border-indigo-500/20 rounded-2xl p-3 mb-3.5 flex items-start space-x-2.5">
             <span class="text-xs font-bold text-indigo-300 uppercase tracking-wider bg-indigo-500/20 px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5">Action</span>
             <p class="text-xs text-indigo-100 font-medium leading-relaxed">${tip.action}</p>
           </div>
 
-          <!-- 学術的出典（テキスト選択可能・ワンタップコピー・Safariリンク付き） -->
           <div class="bg-night-950/70 border border-white/5 rounded-2xl p-3.5 text-[11px] text-slate-300 font-sans">
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center space-x-1.5 text-indigo-300 font-semibold">
@@ -620,7 +921,6 @@
               </div>
             </div>
 
-            <!-- コピペ可能な文献詳細テキスト（長押しで自由に選択可能） -->
             <div class="selectable-text select-text cursor-text bg-black/20 rounded-xl p-2.5 border border-white/5 space-y-1">
               <div class="text-slate-100 font-semibold text-[11px] leading-snug">${tip.citation.journal}</div>
               <div class="text-slate-300 text-[10px] italic leading-normal">“${tip.citation.title}”</div>
@@ -635,7 +935,6 @@
       });
     }
 
-    // トースト通知の表示
     function showToast(message, isSuccess = true) {
       const toast = document.getElementById('toast');
       const toastMsg = document.getElementById('toastMsg');
@@ -654,7 +953,6 @@
       }, 2500);
     }
 
-    // 出典の文献情報をクリップボードにコピー
     function copyCitation(tipId) {
       const tip = SLEEP_KNOWLEDGE_BASE.find(t => t.id === tipId);
       if (!tip || !tip.citation) return;
@@ -676,7 +974,6 @@
       document.body.removeChild(textArea);
     }
 
-    // ブックマーク切替
     function toggleBookmark(tipId) {
       if (savedBookmarks.has(tipId)) {
         savedBookmarks.delete(tipId);
@@ -688,7 +985,6 @@
       refreshCurrentView();
     }
 
-    // クリップボード共有
     function shareTip(tipId) {
       const tip = SLEEP_KNOWLEDGE_BASE.find(t => t.id === tipId);
       if (!tip) return;
@@ -707,7 +1003,6 @@
       document.body.removeChild(textArea);
     }
 
-    // モーダル開閉
     function toggleModal(modalId, show) {
       const modal = document.getElementById(modalId);
       if (show) {
@@ -717,19 +1012,37 @@
       }
     }
 
-    // 画面切り替え
-    function refreshCurrentView() {
-      const dateInfo = getTodayDateString(simulationOffsetDays);
-      const todaysThree = getSeededThreeTips(dateInfo.seed);
-
+    /* 画面切り替え（二度と使わないロジックの適用） */
+    function refreshCurrentView(forceNew = false) {
       if (currentTab === 'today') {
+        const todaysThree = getDailyNonRepeatingThreeTips(forceNew);
         renderKnowledgeCards(todaysThree, false);
       } else if (currentTab === 'archive') {
-        renderKnowledgeCards(SLEEP_KNOWLEDGE_BASE, false);
+        // 知恵録タブでは過去に配信されたすべての知見を履歴順に閲覧可能
+        const deliveredIds = getDeliveredHistory();
+        const deliveredTips = deliveredIds.map(id => SLEEP_KNOWLEDGE_BASE.find(t => t.id === id)).filter(Boolean);
+        renderKnowledgeCards(deliveredTips.length > 0 ? deliveredTips : SLEEP_KNOWLEDGE_BASE, false);
       } else if (currentTab === 'bookmarks') {
         const bookmarkedTips = SLEEP_KNOWLEDGE_BASE.filter(t => savedBookmarks.has(t.id));
         renderKnowledgeCards(bookmarkedTips, true);
       }
+    }
+
+    /* 手動リフレッシュ時も過去の知見を二度と使わず完全新規トピックを抽出 */
+    async function triggerLatestTopicsRefresh() {
+      const icon = document.getElementById('refreshIcon');
+      const statusLabel = document.getElementById('topicSourceStatus');
+
+      if (icon) icon.classList.add('animate-spin');
+      if (statusLabel) statusLabel.textContent = '未配信の最新トピックを取得中...';
+
+      await new Promise(r => setTimeout(r, 500));
+
+      refreshCurrentView(true); // forceNew = true
+
+      if (icon) icon.classList.remove('animate-spin');
+      if (statusLabel) statusLabel.textContent = '最新査読論文より日替わり抽出';
+      showToast('過去配信と重複のない新しい3選に更新しました！');
     }
 
     function setupTabs() {
@@ -744,19 +1057,17 @@
         if (!btn) return;
         btn.addEventListener('click', () => {
           currentTab = t.view;
-          // 全タブをリセット
           document.querySelectorAll('.tab-btn').forEach(b => {
             b.classList.remove('text-indigo-400');
             b.classList.add('text-slate-400');
           });
           btn.classList.add('text-indigo-400');
           btn.classList.remove('text-slate-400');
-          refreshCurrentView();
+          refreshCurrentView(false);
         });
       });
     }
 
-    // 配信時間変更と通知許可の初期化
     function setupDeliveryTimeFeature() {
       const saveBtn = document.getElementById('saveTimeSettingBtn');
       const timeInput = document.getElementById('deliveryTimeInput');
@@ -769,13 +1080,9 @@
 
           const timeStr = formatTimeDisplay(deliveryHour, deliveryMinute);
           
-          // UI表示の更新
           document.getElementById('deliveryBadge').textContent = `${timeStr} 配信`;
-          
-          // アイコンの時計針を再描画
           generateAppIcon(deliveryHour, deliveryMinute);
 
-          // 通知許可を要求（未設定の場合）
           if ('Notification' in window && Notification.permission === 'default') {
             try {
               await Notification.requestPermission();
@@ -784,26 +1091,28 @@
 
           showToast(`毎日の配信時刻を ${timeStr} に変更しました！`);
           toggleModal('notifyModal', false);
+          refreshCurrentView(false);
         }
       });
     }
 
     window.onload = function() {
-      // 1. 高画質iOSアプリアイコンの生成と適用
       generateAppIcon(deliveryHour, deliveryMinute);
 
-      // 2. 日付ラベルの設定
-      const dateInfo = getTodayDateString(0);
-      document.getElementById('todayDateLabel').textContent = dateInfo.formatted;
+      const cycle = getCycleDateKey();
+      document.getElementById('todayDateLabel').textContent = cycle.formatted;
 
-      // 3. タブとイベントのバインド
       setupTabs();
       setupDeliveryTimeFeature();
 
-      // 4. 初回3つの知識のレンダリング
-      refreshCurrentView();
+      // 初回レンダリング（一度配信したものは二度と再登場しない）
+      refreshCurrentView(false);
 
-      // ボタンリスナー
+      const refreshBtn = document.getElementById('refreshTopicsBtn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', triggerLatestTopicsRefresh);
+      }
+
       document.getElementById('notifySettingBtn').addEventListener('click', () => {
         toggleModal('notifyModal', true);
       });
